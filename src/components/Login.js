@@ -12,10 +12,13 @@ const Login = ({ setIsLoggedIn }) => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("http://localhost:3001/api/login", {
-        username,
-        password,
-      });
+      const response = await axios.post(
+        "https://nova-admin-api.onrender.com/api/login",
+        {
+          username,
+          password,
+        }
+      );
       if (response.data.success) {
         localStorage.setItem("token", response.data.token); // Save token
         setIsLoggedIn(true); // Update login state

@@ -16,9 +16,12 @@ const Dashboard = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:3001/api/users", {
-        headers: { Authorization: token },
-      });
+      const response = await axios.get(
+        "https://nova-admin-api.onrender.com/api/users",
+        {
+          headers: { Authorization: token },
+        }
+      );
       setUsers(response.data);
     } catch (err) {
       console.error("Error fetching users:", err);
