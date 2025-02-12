@@ -13,7 +13,7 @@ const Login = ({ setIsLoggedIn }) => {
     e.preventDefault();
     try {
       const response = await axios.post(
-        "https://nova-admin-api.onrender.com/api/login",
+        `${process.env.REACT_APP_API_URL}/login`,
         {
           username,
           password,

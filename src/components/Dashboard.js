@@ -5,24 +5,37 @@ import {
   GridToolbarContainer,
   GridToolbarColumnsButton,
 } from "@mui/x-data-grid";
-import { Typography, Box, Button, Avatar, Paper } from "@mui/material";
+import {
+  Typography,
+  Box,
+  Button,
+  Avatar,
+  Paper,
+  TextField,
+  InputAdornment,
+  IconButton,
+} from "@mui/material";
 import PeopleIcon from "@mui/icons-material/People";
 import InventoryIcon from "@mui/icons-material/Inventory";
+import SearchIcon from "@mui/icons-material/Search";
 
 const Dashboard = () => {
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Function to fetch users
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        "https://nova-admin-api.onrender.com/api/users",
+        `${process.env.REACT_APP_API_URL}/users`, // Use the environment variable
         {
           headers: { Authorization: token },
         }
       );
       setUsers(response.data);
+      setFilteredUsers(response.data); // Initialize filtered users with all users
     } catch (err) {
       console.error("Error fetching users:", err);
     }
@@ -36,6 +49,24 @@ const Dashboard = () => {
   // Function to handle refresh button click
   const handleRefresh = () => {
     fetchUsers();
+    setSearchQuery(""); // Clear the search query
+    setFilteredUsers(users); // Reset filtered users to all users
+  };
+
+  // Function to handle search input change
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  // Function to handle search button click
+  const handleSearchButtonClick = () => {
+    const query = searchQuery.toLowerCase();
+    const filtered = users.filter(
+      (user) =>
+        user.telegramId?.toLowerCase().includes(query) ||
+        user.firstName?.toLowerCase().includes(query)
+    );
+    setFilteredUsers(filtered);
   };
 
   // Calculate total number of users
@@ -51,7 +82,6 @@ const Dashboard = () => {
     { field: "telegramId", headerName: "Telegram ID", width: 150 },
     { field: "firstName", headerName: "First Name", width: 150 },
     { field: "power", headerName: "Power", width: 150 },
-
     { field: "coins", headerName: "Coins", width: 100 },
     { field: "diamonds", headerName: "Diamonds", width: 100 },
     { field: "level", headerName: "Level", width: 100 },
@@ -114,7 +144,7 @@ const Dashboard = () => {
   ];
 
   // Transform user data for DataGrid
-  const rows = users.map((user) => ({
+  const rows = filteredUsers.map((user) => ({
     id: user._id, // DataGrid requires a unique `id` field
     telegramId: user.telegramId,
     firstName: user.firstName,
@@ -189,6 +219,26 @@ const Dashboard = () => {
         <Button variant="contained" onClick={handleRefresh}>
           Refresh
         </Button>
+      </Box>
+
+      {/* Search Bar */}
+      <Box sx={{ marginBottom: 3 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Search by Telegram ID or First Name"
+          value={searchQuery}
+          onChange={handleSearchInputChange}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton onClick={handleSearchButtonClick}>
+                  <SearchIcon />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
       </Box>
 
       {/* Stats Boxes */}
