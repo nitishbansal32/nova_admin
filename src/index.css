@@ -15,3 +15,7 @@ code {
 .MuiBox-root {
   overflow-x: hidden !important;
 }
+
+.MuiDialog-container .MuiPaper-root {
+  min-width: 400px;
+}

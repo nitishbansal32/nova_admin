@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   DataGrid,
@@ -14,6 +14,13 @@ import {
   TextField,
   InputAdornment,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material";
 import PeopleIcon from "@mui/icons-material/People";
 import InventoryIcon from "@mui/icons-material/Inventory";
@@ -23,42 +30,42 @@ const Dashboard = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [selectedTelegramIds, setSelectedTelegramIds] = useState([]); // Store Telegram IDs
+  const [openPopup, setOpenPopup] = useState(false);
 
-  // Function to fetch users
+  // Fetch users
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/users`, // Use the environment variable
-        {
-          headers: { Authorization: token },
-        }
+        `${process.env.REACT_APP_API_URL}/users`,
+        { headers: { Authorization: token } }
       );
       setUsers(response.data);
-      setFilteredUsers(response.data); // Initialize filtered users with all users
+      setFilteredUsers(response.data);
     } catch (err) {
       console.error("Error fetching users:", err);
     }
   };
 
-  // Fetch users on component mount
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // Function to handle refresh button click
+  // Handle refresh button click
   const handleRefresh = () => {
     fetchUsers();
-    setSearchQuery(""); // Clear the search query
-    setFilteredUsers(users); // Reset filtered users to all users
+    setSearchQuery("");
+    setFilteredUsers(users);
   };
 
-  // Function to handle search input change
+  // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
   };
 
-  // Function to handle search button click
+  // Handle search button click
   const handleSearchButtonClick = () => {
     const query = searchQuery.toLowerCase();
     const filtered = users.filter(
@@ -67,6 +74,75 @@ const Dashboard = () => {
         user.firstName?.toLowerCase().includes(query)
     );
     setFilteredUsers(filtered);
+  };
+
+  // Handle row selection
+  const handleSelectionChange = (newSelection) => {
+    console.log("New Selection:", newSelection);
+
+    // Get the Telegram IDs of the newly selected rows
+    const newlySelectedTelegramIds = newSelection
+      .map((id) => users.find((user) => user._id === id)?.telegramId)
+      .filter(Boolean); // Remove undefined values
+
+    // Get the Telegram IDs of the currently selected rows
+    const currentTelegramIds = selectedRows
+      .map((id) => users.find((user) => user._id === id)?.telegramId)
+      .filter(Boolean); // Remove undefined values
+
+    // Find the Telegram IDs to add (newly selected but not already in the array)
+    const idsToAdd = newlySelectedTelegramIds.filter(
+      (id) => !selectedTelegramIds.includes(id)
+    );
+
+    // Find the Telegram IDs to remove (deselected rows)
+    const idsToRemove = currentTelegramIds.filter(
+      (id) => !newlySelectedTelegramIds.includes(id)
+    );
+
+    // Update the selectedTelegramIds state
+    setSelectedTelegramIds((prev) => [
+      ...prev.filter((id) => !idsToRemove.includes(id)), // Remove deselected IDs
+      ...idsToAdd, // Add newly selected IDs
+    ]);
+
+    // Update the selectedRows state (optional, if you still need it)
+    setSelectedRows(newSelection);
+  };
+
+  useEffect(() => {
+    console.log("Selected Telegram IDs:", selectedTelegramIds);
+  }, [selectedTelegramIds]);
+
+  // Handle "Add Diamonds" button click
+  const handleAddDiamonds = () => {
+    console.log("Selected Telegram IDs:", selectedTelegramIds);
+
+    if (selectedTelegramIds.length === 0) {
+      alert("No user selected!");
+      return;
+    }
+
+    setOpenPopup(true);
+  };
+
+  // Handle confirmation of adding diamonds
+  const handleConfirmAddDiamonds = async (diamonds) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/users/update-diamonds`,
+        { telegramIds: selectedTelegramIds, diamonds }, // Use selectedTelegramIds
+        { headers: { Authorization: token } }
+      );
+
+      alert("Diamonds added successfully!");
+      fetchUsers(); // Refresh the user list
+    } catch (err) {
+      console.error("Error adding diamonds:", err);
+      alert("Failed to add diamonds.");
+    }
   };
 
   // Calculate total number of users
@@ -145,7 +221,7 @@ const Dashboard = () => {
 
   // Transform user data for DataGrid
   const rows = filteredUsers.map((user) => ({
-    id: user._id, // DataGrid requires a unique `id` field
+    id: user._id, // Ensure this matches the `id` in your data
     telegramId: user.telegramId,
     firstName: user.firstName,
     power: user.power,
@@ -200,6 +276,63 @@ const Dashboard = () => {
       <GridToolbarContainer>
         <GridToolbarColumnsButton />
       </GridToolbarContainer>
+    );
+  };
+
+  // Popup component
+  const AddDiamondsPopup = ({
+    open,
+    onClose,
+    selectedTelegramIds,
+    users, // Pass the users array
+    onConfirm,
+  }) => {
+    const [diamonds, setDiamonds] = useState("");
+
+    const handleConfirm = () => {
+      if (!diamonds || isNaN(diamonds)) {
+        alert("Please enter a valid number of diamonds.");
+        return;
+      }
+      onConfirm(Number(diamonds));
+      onClose();
+    };
+
+    // Get user details for selected Telegram IDs
+    const selectedUsers = selectedTelegramIds.map((telegramId) =>
+      users.find((user) => user.telegramId === telegramId)
+    );
+
+    return (
+      <Dialog open={open} onClose={onClose}>
+        <DialogTitle>Add Diamonds</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Number of Diamonds"
+            type="number"
+            value={diamonds}
+            onChange={(e) => setDiamonds(e.target.value)}
+            sx={{ marginBottom: 2 }}
+          />
+          <Typography variant="h6">Selected Users:</Typography>
+          <List>
+            {selectedUsers.map((user) => (
+              <ListItem key={user.telegramId}>
+                <ListItemText
+                  primary={`${user.firstName} (${user.telegramId})`} // Display First Name and Telegram ID
+                />
+              </ListItem>
+            ))}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={handleConfirm} variant="contained" color="primary">
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
     );
   };
 
@@ -347,6 +480,23 @@ const Dashboard = () => {
         </Paper>
       </Box>
 
+      {/* Add Diamonds Button */}
+      <Button
+        variant="contained"
+        onClick={handleAddDiamonds}
+        sx={{ marginBottom: 2 }}
+      >
+        Add Diamonds
+      </Button>
+
+      {/* Add Diamonds Popup */}
+      <AddDiamondsPopup
+        open={openPopup}
+        onClose={() => setOpenPopup(false)}
+        selectedTelegramIds={Array.from(selectedTelegramIds)}
+        users={users} // Pass the users array
+        onConfirm={handleConfirmAddDiamonds}
+      />
       {/* DataGrid */}
       <Box sx={{ height: 600, width: "100%" }}>
         <DataGrid
@@ -356,40 +506,10 @@ const Dashboard = () => {
           rowsPerPageOptions={[10]}
           checkboxSelection
           disableSelectionOnClick
+          onRowSelectionModelChange={handleSelectionChange}
+          rowSelectionModel={selectedRows}
           components={{
-            Toolbar: CustomToolbar, // Add custom toolbar with columns button
-          }}
-          columnVisibilityModel={{
-            // Default visibility for all columns
-            telegramId: true,
-            firstName: true,
-            coins: true,
-            diamonds: true,
-            level: true,
-            energy: true,
-            gear1Level: true,
-            gear1LastLevelUp: true,
-            gear2Level: true,
-            gear2LastLevelUp: true,
-            gear3Level: true,
-            gear3LastLevelUp: true,
-            gear4Level: true,
-            gear4LastLevelUp: true,
-            coinPackCount: true,
-            coinPackLastPurchase: true,
-            energyPackCount: true,
-            energyPackLastPurchase: true,
-            publicAddress: true,
-            walletBalance: true,
-            packageD1: true,
-            packageD2: true,
-            packageD3: true,
-            referralCode: true,
-            referredBy: true,
-            referrals: true,
-            referralCount: true,
-            milestoneRewardsGiven: true,
-            maxEnergyCap: true,
+            Toolbar: CustomToolbar,
           }}
         />
       </Box>
